@@ -1,0 +1,434 @@
+package org.processmining.plugins.predictive_monitor.bpmn;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
+
+import org.deckfour.xes.extension.std.XConceptExtension;
+import org.deckfour.xes.in.XMxmlGZIPParser;
+import org.deckfour.xes.in.XMxmlParser;
+import org.deckfour.xes.in.XesXmlGZIPParser;
+import org.deckfour.xes.in.XesXmlParser;
+import org.deckfour.xes.model.XAttributeMap;
+import org.deckfour.xes.model.XEvent;
+import org.deckfour.xes.model.XLog;
+import org.deckfour.xes.model.XTrace;
+import org.processmining.plugins.declareminer.Watch;
+
+import weka_predictions.data_predictions.Result;
+
+public class ReplayerRandomForest {
+
+	/**
+	 * @param args
+	 * @throws FileNotFoundException
+	 */
+	public static void main(String[] args) throws FileNotFoundException {
+		//String inputLogFileName = "C:\\Users\\Fabrizio\\Desktop\\BPI2011_20.xes";
+		//String outputFileName = "C:\\Users\\Fabrizio\\Desktop\\output05_30Part2.txt";
+		//String inputLogFileName = "./input/loan_test_wo_age.mxml";
+		String inputLogFileName = "/home/coderus/TKDE/case_study/BPI2011_20.xes";
+		double minConfidenceThreshold = 0.7;
+		double minSupportThreshold = 1;
+		
+
+		XLog log = null;
+
+		if(inputLogFileName.toLowerCase().contains("mxml.gz")){
+			XMxmlGZIPParser parser = new XMxmlGZIPParser();
+			if(parser.canParse(new File(inputLogFileName))){
+				try {
+					log = parser.parse(new File(inputLogFileName)).get(0);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}else if(inputLogFileName.toLowerCase().contains("mxml")){
+			XMxmlParser parser = new XMxmlParser();
+			if(parser.canParse(new File(inputLogFileName))){
+				try {
+					log = parser.parse(new File(inputLogFileName)).get(0);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+
+		if(inputLogFileName.toLowerCase().contains("xes.gz")){
+			XesXmlGZIPParser parser = new XesXmlGZIPParser();
+			if(parser.canParse(new File(inputLogFileName))){
+				try {
+					log = parser.parse(new File(inputLogFileName)).get(0);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}else if(inputLogFileName.toLowerCase().contains("xes")){
+			XesXmlParser parser = new XesXmlParser();
+			if(parser.canParse(new File(inputLogFileName))){
+				try {
+					log = parser.parse(new File(inputLogFileName)).get(0);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		//CONFIGURAZIONE
+		//String formulaLTL = "<>(\"ca-125 using meia\")";
+		//String formulaLTL = "(<>(\"order rate\"))/\\(<>(\"ca-125 using meia\"))";
+		//String formulaLTL = "(<>(\"ca-125 using meia\"))";
+		//String formulaLTL = "(<>(\"O2 saturation\"))";
+		//String formulaLTL = "[]((\"calcium\")->(<>(\"Calcium - urgent\")))";
+		//int traceIndex = 44;
+		//int traceIndex = 11;
+
+		//	String[] confFormulas = new String[1];
+
+		//	confFormulas[2]="( (<>(\"ca-125 using meia\")) -> (<>(\"CEA - tumor marker using meia\"))  )/\\([](    ((\"CEA - tumor marker using meia\") -> (\"squamous cell carcinome using eia\"))))";
+
+		//	confFormulas[0]="(  (! (\"Calcium - urgent\")) U (\"calcium\")) ";
+		//	confFormulas[2]=" ([](    ((\"unconjugated bilirubin\") -> (<>(\"squamous cell carcinoma using eia\")))))/\\  (!(<>(\"bilirubin - total\")))";
+		//	confFormulas[0]="( [] ( (\"glucose\") -> (<>(\"Glucose - urgent\")))) \\/ (!(<>(\"glucose\")) )";
+		//	confFormulas[2]="! (\"histological examination - biopsies nno\")) U (\"cytology - ectocervix -\"))";
+		//	confFormulas[3]=" (  [](     (  (\"unconjugated bilirubin\") ) ->  ( !   ( <> (\"teletherapy - megavolt photons bestrali\") ) )    )  )";
+
+
+		//	String lTLFormula="(  <>(\"bicarbonate\") ) ";
+		//	String lTLFormula="   ( <> (\"histological examination - big resectiep\") )   ";
+		//	String lTLFormula="([](    ((\"CEA - tumor marker using meia\") -> ( <>(\"squamous cell carcinoma using eia\")))))";
+		//	String lTLFormula="(  (! (\"histological examination - biopsies nno\")) U (\"cytology - ectocervix -\"))";
+		/*	confFormulas[1]="(  (! (\"histological examination - biopsies nno\")) U (\"squamous cell carcinoma using eia\"))";
+			confFormulas[0]="   ( <> (\"histological examination - big resectiep\") )   ";*/
+		//confFormulas[0]="   ( <>(\"request_complex_accepted\") )   ";
+		//confFormulas[1]="(  (! (\"histological examination - biopsies nno\")) U (\"squamous cell carcinoma using eia\"))";
+		//
+		//	Formula formula = new DataCondFormula("[][][0,3,d]","histological examination - biopsies nno","squamous cell carcinoma using eia",DeclareTemplate.Response);
+		//Formula formula = new DataCondFormula("[A.Diagnosis>'maligniteit vulva'][][]","histological examination - biopsies nno","squamous cell carcinoma using eia",DeclareTemplate.Response);
+		//confFormulas[1]="( ( (!(\"calcium\")) /\\ (!(\"ca-125 using meia\"))  /\\ (!(\"glucose\"))  /\\ (!(\"urea\"))  /\\ (!(\"unconjugated bilirubin\")) )U (\"assumption laboratory\"))\\/ ([]( (!(\"calcium\")) /\\ (!(\"ca-125 using meia\"))  /\\ (!(\"glucose\"))  /\\ (!(\"urea\"))  /\\ (!(\"unconjugated bilirubin\")) ))";
+		//	confFormulas[1]="( [](    ((\"calcium\") -> (\"Calcium - urgent\")) /\\  ((\"glucose\") -> (\"Glucose - urgent\"))   ) )";
+
+		//		String lTLFormula="!(  <>(\"First outpatient consultation\"))";
+		//		String lTLFormula="(  <>(\"tumor marker CA-19.9\") ) \\/ ( <> (\"ca-125 using meia\") )  ";
+
+
+
+
+		String[] confFormulas = new String[1];
+		confFormulas[0]="(  <>(\"tumor marker CA-19.9\") ) \\/ ( <> (\"ca-125 using meia\") )  ";
+//		confFormulas[1]="!(  <>(\"First outpatient consultation\"))";
+//		confFormulas[2]="(  (! (\"Calcium - urgent\")) U (\"calcium\")) ";
+//		//confFormulas[3]="( [](    ((\"calcium\") -> (\"Calcium - urgent\")) /\\  ((\"glucose\") -> (\"Glucose - urgent\"))   ) )";
+//		Formula dFormula1 = new DataCondFormula("[A.Age>35][][]","histological examination - biopsies nno","squamous cell carcinoma using eia",DeclareTemplate.Response);
+//		Formula dFormula2 = new DataCondFormula("['A.Producer code'=='CLRE'][][]","assumption laboratory","MRI abdomen",DeclareTemplate.Precedence);
+//		confFormulas[3]="(  <>(\"order rate\"))";
+//		confFormulas[4]="(  (! (\"histological examination - biopsies nno\")) U (\"cytology - ectocervix -\"))";
+//		Formula dFormula3 = new DataCondFormula("[A.Diagnosis=='maligniteit vulva'][][]","ca-125 using meia","order rate",DeclareTemplate.Responded_Existence);
+//		confFormulas[5] = "(  <>(\"bicarbonate\") ) ";
+//		confFormulas[6]="( [](    ((\"calcium\") -> (\"Calcium - urgent\")) /\\  ((\"glucose\") -> (\"Glucose - urgent\"))   ) )";
+
+		Vector<Formula> formulaVector = new Vector<Formula>();
+		for (String lTLFormula : confFormulas) {
+			SimpleFormula formula = new SimpleFormula(lTLFormula);
+			formulaVector.add(formula);
+		}
+//		formulaVector.add(dFormula1);
+//		formulaVector.add(dFormula2);
+//		formulaVector.add(dFormula3);
+
+
+
+		//confFormulas[0]="(  (! (\"histological examination - biopsies nno\")) U (\"squamous cell carcinoma using eia\"))";
+
+
+
+		//confFormulas[0]="([](    ((\"histological examination - biopsies nno\") -> ( <>(\"unconjugated bilirubin\")))))";
+		//	confFormulas[0]="(  (! (\"histological examination - biopsies nno\")) U (\"cytology - ectocervix -\"))";
+
+		//###########################
+
+
+
+		LogReaderAndReplayer replayer = null;
+		try {
+			replayer = new LogReaderAndReplayer(log);
+		} catch (Exception e2) {
+			// TODO Auto-generated catch block
+			e2.printStackTrace();
+		}
+		DataSnapshotListener listener = new DataSnapshotListener(replayer.getDataTypes(), replayer.getActivityLabels());
+
+		int prefixGap = 5;
+
+		for (int numPrefixes = 5; numPrefixes < 6; numPrefixes++) {
+			int maxPrefixLength = numPrefixes*prefixGap;
+			//for (int clusterNumber = 18; clusterNumber <23 ; clusterNumber++) {
+			for (int clusterNumber = 3; clusterNumber <34 ; clusterNumber++) {
+
+
+
+
+				Map<String,Integer> configuration = new HashMap<String, Integer>();
+				configuration.put("maxPrefixLength", maxPrefixLength);
+				configuration.put("prefixGap", prefixGap);
+				configuration.put("clusterNumber", clusterNumber);
+
+
+				/*					for (String lTLFormula : confFormulas) {
+						SimpleFormula formula = new SimpleFormula(lTLFormula);
+						Vector<Formula> formulas = new Vector<Formula>();
+						formulas.add(formula);*/
+				int f =0;
+				for (Formula formula : formulaVector) {
+					Vector<Formula> formulas = new Vector<Formula>();
+					formulas.add(formula);
+
+					String outputFileName = "/home/coderus/TKDE/case_study/output_"+f+"_"+prefixGap+"_"+numPrefixes+"_"+clusterNumber+".txt";
+					f++;
+
+					File output = new File(outputFileName);
+					PrintWriter pw = new PrintWriter(output);
+
+					pw.println("Formula\tTraceId\teventIndex\tpredictedValue\tactualValue\tConfidence\tInitTime\tTraceTime");
+					pw.flush();
+
+
+					double acc = 0.0;
+					double tot = 0.0;
+					double maybe = 0.0;
+					double tp = 0.0;
+					double tn = 0.0;
+					double fp = 0.0;
+					double fn = 0.0;
+					double earliness = 0.0;
+
+					double initTime = 0.0;
+					double predTime = 0.0;
+					
+					double totalLogEventTime = 0.0;
+					double totalLogEventNumber = 0.0;
+					double numberEv = 0;
+					double secs = 0;
+
+
+					configuration.put("newConfiguration", 1);
+
+					
+					// TRACE CYCLE
+					for(XTrace trace : log){
+						tot++;
+
+		//		if (XConceptExtension.instance().extractName(trace).equalsIgnoreCase("00000915")){ 
+		//				//		XConceptExtension.instance().extractName(trace).equalsIgnoreCase("00000916") ){
+						//long t1 = System.currentTimeMillis();
+						//if (XConceptExtension.instance().extractName(trace).equalsIgnoreCase("00000980")){
+
+						Watch watch = new Watch();
+						watch.start();
+						long time = 0;
+						
+						if(trace.size()>0){
+
+							System.out.println("Trace: "+XConceptExtension.instance().extractName(trace));
+
+							boolean satisfied = true;
+							for (Formula form : formulas) {
+								satisfied = satisfied && !FormulaVerificator.isTraceViolated(listener, formula, trace);
+							}
+							boolean violated = ! satisfied;
+
+							boolean found = false;
+							int currPrefIndex;
+							int traceGap = 2;
+							
+							//EVENT CYCLE
+							// evaluation
+							for (currPrefIndex = 0; currPrefIndex < trace.size() && !found; currPrefIndex+=traceGap) {
+								System.out.println(currPrefIndex);
+								Watch watch_ev = new Watch();
+								watch_ev.start();
+								long time_ev = 0;
+								
+								totalLogEventNumber ++;
+
+
+								List<String> currentEvents = new Vector<String>();
+								int i = 0;
+								for(XEvent event : trace){
+									currentEvents.add(event.getAttributes().get(XConceptExtension.KEY_NAME).toString());
+									i++;
+									if(i>currPrefIndex){
+										break;
+									}
+								}
+
+								Vector<String> currentVariables = new Vector<String>();
+								for(String attribute : trace.get(currPrefIndex).getAttributes().keySet()){
+									currentVariables.add(attribute);
+								}
+
+								Map<String, String> variables = new HashMap<String, String>();
+
+								XAttributeMap traceAttr = trace.getAttributes();
+								for(String attribute : traceAttr.keySet()){
+									//if(!attribute.contains("date"))
+									variables.put(attribute, traceAttr.get(attribute).toString());
+								}
+								i= 0;
+								for(XEvent e : trace){
+									XAttributeMap eventAttr = e.getAttributes();
+									for(String attribute : eventAttr.keySet()){
+										//	if(!attribute.contains("date"))
+										variables.put(attribute, eventAttr.get(attribute).toString());
+									}
+									i++;
+									if(i>currPrefIndex){
+										break;
+									}
+								}
+
+								numberEv ++;
+								Watch w = new Watch();
+								w.start();
+								Map<String, Result> result = OperationalSupportRandomForest.provideOperationalSupport(trace, currPrefIndex, trace.getAttributes().get(XConceptExtension.KEY_NAME).toString(), formulas, currentVariables, variables, configuration);
+								secs = secs + w.msecs();
+								time = watch.msecs();
+								
+								totalLogEventTime = totalLogEventTime+time_ev;
+
+								Result prediction = null;
+								boolean key = result.keySet().iterator().hasNext();
+								if(key ==true){
+									prediction = result.get(result.keySet().iterator().next());
+									System.out.println("confidence: "+prediction.getConfidence()+ " prediction: "+ prediction.isSatisfied());
+									if (prediction.getConfidence()>minConfidenceThreshold && prediction.getSupport()>minSupportThreshold) {
+
+										System.out.print("Predicted: "+ prediction.isSatisfied());
+										System.out.println(" --- Real: "+ !violated);
+
+
+										if (prediction.isSatisfied()==!violated)
+											acc++;
+										if (prediction.isSatisfied()){
+											if (!violated)
+												tp++;
+											else
+												fp++;
+										} else {
+											if (violated)
+												tn++;
+											else
+												fn++;
+
+										}
+										earliness = earliness + (((double)currPrefIndex)/((double)trace.size()));
+										initTime = prediction.getInitializationTime();
+										predTime = predTime+time;
+
+										pw.print(formula.getLTLFormula()+"\t");
+										pw.flush();
+										pw.print(XConceptExtension.instance().extractName(trace)+"\t");
+										pw.flush();
+
+										pw.print(currPrefIndex+"\t");
+										pw.flush();
+
+										pw.print(prediction.isSatisfied()+"\t");
+										pw.flush();
+
+										pw.print(!violated+"\t");
+										pw.flush();
+
+										pw.print(prediction.getConfidence()+"\t");
+										pw.flush();
+
+										pw.print(prediction.getInitializationTime()+"\t");
+										pw.flush();
+										//long t2 = System.currentTimeMillis();
+										pw.print(time+"\t");
+										pw.flush();
+
+
+										pw.println("");
+
+										found = true;
+
+									}
+								}
+								configuration.put("newConfiguration", 0);
+
+							}// events
+							if (!found) {
+								
+								System.out.print("Predicted: maybe");
+								System.out.println(" --- Real: "+ !violated);
+
+								pw.print(formula.getLTLFormula()+"\t");
+								pw.flush();
+								pw.print(XConceptExtension.instance().extractName(trace)+"\t");
+								pw.flush();
+
+								pw.print(currPrefIndex+"\t");
+								pw.flush();
+
+								pw.print("maybe\t");
+								pw.flush();
+
+								pw.print(!violated+"\t");
+								pw.flush();
+
+								pw.print("\t");
+								pw.flush();
+
+								pw.print("\t");
+								pw.flush();
+								//long t2 = System.currentTimeMillis();
+								pw.print(time+"\t");
+								pw.flush();
+
+								pw.println("");
+								maybe++;
+
+							}
+						} // traces
+					//	}
+					}// traces
+
+					pw.println("CORRECT:\t"+acc);
+					pw.println("MAYBE:\t"+maybe);
+					pw.println("TRUE POSITIVE:\t"+tp);
+					pw.println("TRUE NEGATIVE:\t"+tn);
+					pw.println("FALSE POSITIVE:\t"+fp);
+					pw.println("FALSE NEGATIVE:\t"+fn);
+					pw.println("TOTAL:\t"+tot);
+					acc = acc / (tot - maybe);
+					pw.println("ACCURACY:\t"+acc);
+					double tpr = tp/(tp+fn);
+					pw.println("TPR:\t"+tpr);
+					pw.println("FPR:\t"+fp/(fp+tn));
+					double ppv = tp/(tp+fp);
+					pw.println("PPV:\t"+ppv);
+					pw.println("F1:\t"+(2*(ppv*tpr)/(ppv+tpr)));
+					pw.println("EARLINESS AVG:\t"+earliness/(tot-maybe));
+					pw.println("FAILURE RATE:\t"+maybe/tot);
+					pw.println("INIT TIME:\t"+initTime);
+					pw.println("TOATL TIME (ON TRACES) FOR THE PREDICTIVE EVENT :\t"+predTime);
+					pw.println("AVG TIME (ON TRACES) FOR THE PREDICTIVE EVENT :\t"+predTime/(tot-maybe));
+					
+					pw.println("TOTAL LOG EVENT TIME:\t"+totalLogEventTime);
+					pw.println("TOTAL NUMBER OF LOG EVENTS:\t"+totalLogEventNumber);
+					pw.println("AVG LOG EVENT TIME:\t"+totalLogEventTime/totalLogEventNumber);
+					secs = secs-initTime;
+					secs = secs/ numberEv;
+					pw.println("Average Prediction Time: "+secs);
+					pw.close();
+
+				}
+			}
+		}
+	}
+
+}

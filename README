@@ -1,0 +1,11 @@
+The aim of the project is to design and evaluate methods for predictive process
+monitoring that would strike a balance between the following three dimensions:
+
+- Accuracy – being able to make predictions about a given outcome with relatively high levels of
+accuracy (e.g. above 90%) and with a sound statistical foundation to back the predictions.
+
+- Earliness – being able to make predictions as early as possible, as soon as there is enough
+information in an uncompleted trace to make a prediction with sufficient confidence.
+
+- Low runtime overhead – being able to make predictions almost instantaneously, with limited
+computing resources, over real-scale scenarios.
