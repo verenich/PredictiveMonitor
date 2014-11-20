@@ -10,4 +10,4 @@ information in an uncompleted trace to make a prediction with sufficient confide
 - Low runtime overhead – being able to make predictions almost instantaneously, with limited
 computing resources, over real-scale scenarios.
 
-version 1.1
+version 1.2
